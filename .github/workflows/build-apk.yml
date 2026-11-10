@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Join and unzip project
+        run: |
+          cat nuvio-part-*.bin > project.zip
+          unzip -q project.zip
+          rm project.zip
+          ls
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Rust
+        run: |
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Build APK
+        working-directory: NuvioMobile-Enhanced-0.6.10-beta
+        run: |
+          touch local.properties
+          chmod +x ./gradlew
+          ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nuvio-Enhanced-APK
+          path: NuvioMobile-Enhanced-0.6.10-beta/androidApp/build/outputs/apk/full/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
